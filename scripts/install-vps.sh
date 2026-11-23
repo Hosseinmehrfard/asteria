@@ -10,34 +10,55 @@ for label in ${DOMAIN_NAME//./ }; do
   [[ "${#label}" -le 63 && "$label" != -* && "$label" != *- ]] || fail 'Invalid DNS label.'
 done
 
-if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
+# Install missing components only. Never remove or replace an existing Docker CE installation.
+needs_docker=0
+needs_compose=0
+needs_buildx=0
+needs_curl=0
+command -v docker >/dev/null 2>&1 || needs_docker=1
+if [[ "$needs_docker" == 0 ]]; then
+  docker compose version >/dev/null 2>&1 || needs_compose=1
+  docker buildx version >/dev/null 2>&1 || needs_buildx=1
+else
+  needs_compose=1
+  needs_buildx=1
+fi
+command -v curl >/dev/null 2>&1 || needs_curl=1
+if ((needs_docker || needs_compose || needs_buildx || needs_curl)); then
   if [[ -r /etc/os-release ]]; then source /etc/os-release; else fail 'Cannot identify Linux distribution.'; fi
-  [[ "${ID:-}" == 'ubuntu' && "${VERSION_ID:-}" == '24.04' ]] || fail 'Automatic Docker installation supports Ubuntu 24.04 only. On another OS, install Docker Engine and Docker Compose plugin first.'
-  command -v sudo >/dev/null 2>&1 || [[ $(id -u) -eq 0 ]] || fail 'sudo is required to install Docker.'
+  [[ "${ID:-}" == 'ubuntu' && "${VERSION_ID:-}" == '24.04' ]] || fail 'Automatic dependency installation is supported only on Ubuntu 24.04.'
+  command -v sudo >/dev/null 2>&1 || [[ $(id -u) -eq 0 ]] || fail 'sudo is required to install missing packages.'
   packages=(ca-certificates curl)
-  if ! command -v docker >/dev/null 2>&1; then
-    packages+=(docker.io docker-compose-v2)
-  elif ! docker compose version >/dev/null 2>&1; then
-    # Preserve existing upstream Docker CE installations instead of replacing them.
-    if dpkg-query -W -f='${Status}' docker-ce 2>/dev/null | grep -q 'install ok installed'; then
-      packages+=(docker-compose-plugin)
-    else
-      packages+=(docker-compose-v2)
+  if ((needs_docker)); then
+    packages+=(docker.io docker-compose-v2 docker-buildx)
+  else
+    using_docker_ce=0
+    if dpkg-query -W -f='${Status}' docker-ce 2>/dev/null | grep -q 'install ok installed'; then using_docker_ce=1; fi
+    if ((needs_compose)); then
+      if ((using_docker_ce)); then packages+=(docker-compose-plugin); else packages+=(docker-compose-v2); fi
+    fi
+    if ((needs_buildx)); then
+      if ((using_docker_ce)); then packages+=(docker-buildx-plugin); else packages+=(docker-buildx); fi
     fi
   fi
-  info 'Installing missing dependencies from configured Ubuntu/Docker repositories'
+  info 'Installing missing dependencies from the already-configured APT repositories'
   if [[ $(id -u) -eq 0 ]]; then
-    apt-get update
-    apt-get install -y "${packages[@]}"
-    systemctl enable --now docker
+    apt-get update && apt-get install -y "${packages[@]}"
   else
-    sudo apt-get update
-    sudo apt-get install -y "${packages[@]}"
-    sudo systemctl enable --now docker
+    sudo apt-get update && sudo apt-get install -y "${packages[@]}"
   fi
 fi
-command -v curl >/dev/null 2>&1 || fail 'Install curl before running installer.'
+command -v docker >/dev/null 2>&1 || fail 'Docker CLI is unavailable.'
 docker compose version >/dev/null 2>&1 || fail 'Docker Compose v2 is unavailable.'
+docker buildx version >/dev/null 2>&1 || fail 'Docker Buildx is unavailable.'
+command -v curl >/dev/null 2>&1 || fail 'curl is unavailable.'
+if ! docker info >/dev/null 2>&1 && ! { command -v sudo >/dev/null 2>&1 && sudo docker info >/dev/null 2>&1; }; then
+  info 'Starting the Docker daemon'
+  if [[ $(id -u) -eq 0 ]]; then systemctl enable --now docker; else sudo systemctl enable --now docker; fi
+fi
+if ! docker info >/dev/null 2>&1 && ! { command -v sudo >/dev/null 2>&1 && sudo docker info >/dev/null 2>&1; }; then
+  fail 'Docker daemon is not reachable (check systemctl status docker).'
+fi
 
 if [[ -e .env ]]; then
   existing_origin="$(sed -n 's/^APP_ORIGIN=//p' .env | tail -n 1)"
@@ -59,7 +80,8 @@ dc up -d --build
 info 'Verifying the application health endpoint'
 healthy=0
 for attempt in {1..30}; do
-  if curl -fsS --max-time 4 http://127.0.0.1:4000/api/health; then healthy=1; break; fi
+  health_response="$(curl -fsS --max-time 4 http://127.0.0.1:4000/api/health 2>/dev/null || true)"
+  if [[ "$health_response" == *'"service":"asteria"'* ]]; then healthy=1; printf '%s\n' "$health_response"; break; fi
   sleep 2
 done
 printf '\n'

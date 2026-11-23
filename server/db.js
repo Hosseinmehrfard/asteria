@@ -87,6 +87,8 @@ export const all = (sql,...params) => db.prepare(sql).all(...params);
 export const run = (sql,...params) => db.prepare(sql).run(...params);
 export const uid = () => randomUUID();
 export const audit = (user,action,target,details={}) => run('INSERT INTO audit(id,user_id,action,target,details) VALUES(?,?,?,?,?)',uid(),user?.id||null,action,target,JSON.stringify(details));
+// Existing databases must never be reseeded after an administrator deletes demo items.
+const isFreshDatabase=!get('SELECT key FROM settings LIMIT 1') && get('SELECT COUNT(*) n FROM content').n===0;
 const defaultSettings={
   siteNameFa:'آستریا',siteNameEn:'ASTERIA',taglineFa:'روایتی نو از آسمان و خودشناسی',taglineEn:'A different perspective on the sky and the self',
   heroTitleFa:'آسمان را از زاویه‌ای تازه ببینید',heroTitleEn:'Discover the sky from a new perspective',
@@ -98,6 +100,7 @@ const defaultSettings={
   announcementEn:'Welcome to Asteria — your journey begins here.'
 };
 for(const [key,val] of Object.entries(defaultSettings))run('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)',key,JSON.stringify(val));
+if(isFreshDatabase){
 function seed(kind,slug,fa,en,summaryFa,summaryEn,bodyFa,bodyEn,opts={}){
  if(get('SELECT id FROM content WHERE slug=?',slug))return;
  run(`INSERT INTO content(id,kind,slug,title_fa,title_en,summary_fa,summary_en,body_fa,body_en,image,category,status,price,sale_price,stock,sort_order,extra)
@@ -181,3 +184,6 @@ if(demoCourse&&!get('SELECT id FROM lessons WHERE course_id=?',demoCourse.id)){
  [3,'خانه‌های چارت','Chart houses','آشنایی با انواع خانه‌بندی و محدودیت‌های تفسیر نمادین.','Learn about astrological house systems and interpretive limitations.',0]])
  run('INSERT INTO lessons(id,course_id,title_fa,title_en,body_fa,body_en,preview,sort_order) VALUES(?,?,?,?,?,?,?,?)',uid(),demoCourse.id,fa,en,textFa,textEn,preview,idx);
 }
+
+}
+run('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)','demoSeedCompleted',JSON.stringify(true));

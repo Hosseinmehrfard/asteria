@@ -1,4 +1,4 @@
-FROM node:22.16.0-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json ./
 COPY client/package.json ./client/
@@ -7,7 +7,7 @@ RUN npm install --no-audit --no-fund
 COPY client/ ./client/
 RUN npm run build
 
-FROM node:22.16.0-alpine
+FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production PORT=4000 DB_PATH=/app/server/data/asteria.sqlite
 COPY package.json ./

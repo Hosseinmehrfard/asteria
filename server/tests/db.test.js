@@ -1,3 +1,4 @@
+import * as childProcess from 'node:child_process';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -35,5 +36,19 @@ test('order data retains immutable snapshot and valid total',()=>{
  assert.equal(row.status,'awaiting_payment');
  assert.equal(JSON.parse(row.items)[0].quantity,2);
  assert.equal(row.total,18000);
+});
+test('deleted demo content does not reappear after restarting the app',()=>{
+ const target=get("SELECT id FROM content WHERE slug='reading-your-natal-chart'");
+ assert.ok(target);
+ run('DELETE FROM content WHERE id=?',target.id);
+ assert.equal(get("SELECT COUNT(*) n FROM content WHERE slug='reading-your-natal-chart'").n,0);
+ // A new process emulates a subsequent server startup on the same database.
+ const {spawnSync}=childProcess;
+ const child=spawnSync(process.execPath,['--input-type=module','-e',`import {db} from './server/db.js';db.close();`],{
+  cwd:path.resolve(import.meta.dirname,'../..'),
+  env:{...process.env,DB_PATH:path.join(scratch,'site.sqlite')},encoding:'utf8'
+ });
+ assert.equal(child.status,0,child.stderr);
+ assert.equal(get("SELECT COUNT(*) n FROM content WHERE slug='reading-your-natal-chart'").n,0);
 });
 test.after(()=>{db.close();fs.rmSync(scratch,{recursive:true,force:true});});

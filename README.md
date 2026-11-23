@@ -1,47 +1,78 @@
-# Asteria | وب‌سایت دو‌زبانه آسترولوژی
+# ASTERIA — وب‌سایت آسترولوژی فارسی و انگلیسی
 
-وب‌سایت فارسی/انگلیسی (RTL/LTR) با **React + Vite**، **Node.js + Express**، **SQLite** و پنل مدیریت اختصاصی. طراحی و محتوای اولیه مستقل از سایت مرجع هستند.
+پروژه مستقل **React + Vite / Express + Node.js / SQLite** با رابط RTL/LTR و پنل مدیریت در `/admin`. مناسب قرار گرفتن در GitHub و استقرار روی **Ubuntu 24.04 VPS** با Docker Compose و Caddy (HTTPS).
 
-> **وضعیت:** نسخه اولیه (MVP). پرداخت آنلاین، ارسال ایمیل و بازیابی رمز ایمیلی فعال نیستند. پیش از استفاده تجاری باید سرویس‌ها و تنظیمات تکمیل و روی سرور واقعی آزموده شوند.
+> **نسخه 1.1 — MVP توسعه‌پذیر**. اتصال واقعی درگاه پرداخت، ایمیل/پیامک، بازیابی رمز ایمیلی و برخی قابلیت‌های تولیدی هنوز پیاده‌سازی نشده‌اند. اجرای واقعی Docker و تست مرورگر در محیط تولیدکننده تأیید نشده است.
 
 ## امکانات
 
-- **سایت:** صفحه اصلی، وبلاگ، فروشگاه، آکادمی و درس‌ها، چارت تولد، تقویم ماه، خدمات و رزرو درخواست، صفحات اختصاصی، تماس، سبد خرید و حساب کاربری.
-- **پنل مدیریت `/admin`:** ۲۲ بخش شامل مدیریت مقاله، محصول، دوره، درس، دسته‌بندی، سفارش، کاربر و نقش، رزرو، تخفیف، رسانه و فایل خصوصی، صفحات، بنر، پیام، خبرنامه، تنظیمات، گزارش‌ها و سوابق اقدامات.
-- **داده‌ها:** پایگاه داده و فایل‌های کاربر روی VPS ذخیره می‌شوند، نه در GitHub. اسکریپت به‌روزرسانی قبل از دریافت کد جدید، پشتیبان تهیه می‌کند.
+- سایت: صفحه اصلی، مقاله، فروشگاه، دوره و درس، چارت تولد، تقویم ماه، خدمات و رزرو، تماس، صفحات اختصاصی، حساب کاربری و سبد خرید.
+- پنل مدیریت: محتوا، محصولات، دوره‌ها، درس‌ها، دسته‌بندی‌ها، صفحات، بنرها، کاربران و نقش‌ها، سفارش‌ها، رزرو، تخفیف‌ها، فایل‌های عمومی/خصوصی، پیام‌ها، خبرنامه، تنظیمات، آمار و گزارش فعالیت‌ها.
+- داده‌ها، رمزهای محیطی، آپلودها و بکاپ‌ها در سرور قرار می‌گیرند و نباید وارد GitHub شوند.
 
-## نصب آسان از GitHub روی VPS
+## نصب آسان با یک خط روی VPS
 
-**پیش‌نیاز:** Ubuntu 24.04، دسترسی SSH و `sudo`، دامنه با DNS متصل به IP سرور، پورت‌های باز 80/443، مخزن GitHub قابل‌دسترسی.
+**پیش‌نیاز:** دامنه واقعی با رکورد DNS به IP سرور، پورت TCP 80 و 443 آزاد، Ubuntu 24.04 و دسترسی SSH با `sudo`.
 
-**۱. نصب یک‌خطی `example.com` را با اطلاعات خود جایگزین کنید:
-```bash
-sudo apt-get update && sudo apt-get install -y git && sudo mkdir -p /opt/asteria && sudo chown "$(id -u):$(id -g)" /opt/asteria && git clone https://github.com/Hosseinmehrfard/asteria.git /opt/asteria && cd /opt/asteria && bash scripts/install-vps.sh example.com
-```
-
-اسکریپت، Docker/Compose (در صورت نیاز) را نصب می‌کند و سایت را با Caddy و HTTPS اجرا می‌کند. برای GitHub خصوصی، احراز هویت Git باید قبلاً تنظیم شده باشد.
-
-**۲. آپدیت یک‌خطی** — همراه با بکاپ خودکار قبل از دریافت نسخه جدید:
+جای `example.com`، دامنه واقعی خود را بنویسید. این دستور **اگر `/opt/asteria` قبلاً از همین GitHub کلون شده باشد دوباره clone نمی‌کند**؛ مسیر به‌روزرسانی را انجام می‌دهد و اطلاعات موجود را پاک نمی‌کند.
 
 ```bash
-cd /opt/asteria && bash scripts/update-vps.sh
+sudo apt-get update && sudo apt-get install -y curl git && (set -o pipefail; curl -fsSL https://raw.githubusercontent.com/Hosseinmehrfard/asteria/main/scripts/bootstrap-vps.sh | bash -s -- example.com)
 ```
 
-**۳. ساخت حساب مدیر** (اگر در نصب اولیه ایجاد نشده است):
+**توجه:** ابتدا فایل‌های این نسخه را در شاخه `main` مخزن `Hosseinmehrfard/asteria` آپلود و ثبت کنید؛ دستور بالا اسکریپت همان مخزن را دریافت می‌کند. برای مخزن خصوصی یا URL متفاوت، [راهنمای استقرار](docs/GITHUB_VPS_FA.md) را ببینید.
+
+پس از نصب موفق:
+
+- سایت: `https://example.com`
+- پنل مدیریت: `https://example.com/admin`
+- ایجاد اولین مدیر (یک بار، در ترمینال SSH):
 
 ```bash
 cd /opt/asteria && sudo docker compose -f compose.yaml -f compose.vps.yaml exec web node server/setup-admin.js
 ```
 
-**۴. بکاپ دستی:**
+## آپدیت یک‌خطی
+
+پس از ثبت نسخه جدید در GitHub:
 
 ```bash
-cd /opt/asteria && bash scripts/backup-vps.sh
+cd /opt/asteria && bash scripts/update-vps.sh
 ```
 
-پس از نصب: `https://example.com` | پنل: `https://example.com/admin`
+اسکریپت ابتدا از پایگاه داده و آپلودها بکاپ می‌گیرد، سپس با `git pull --ff-only` نسخه جدید را دریافت، ایمیج را می‌سازد و سلامت API را بررسی می‌کند.
 
-## بارگذاری ](docs/DEPLOYMENT_FA.md)
+## دستورات مدیریتی
+
+```bash
+cd /opt/asteria && bash scripts/status-vps.sh  # وضعیت و سلامت سایت
+cd /opt/asteria && bash scripts/logs-vps.sh    # آخرین خطاهای اپلیکیشن
+cd /opt/asteria && bash scripts/backup-vps.sh  # بکاپ دستی
+```
+
+بکاپ در `/opt/asteria/storage/backups` ایجاد می‌شود. نسخه‌ای از آن را در محلی خارج از VPS نگه دارید.
+
+## توسعه روی کامپیوتر
+
+با Node.js 22.16 یا جدیدتر:
+
+```bash
+npm install
+npm run setup-admin
+npm run dev
+```
+
+- React: `http://localhost:5173`
+- بک‌اند: `http://localhost:4000/api/health`
+- آزمون پایگاه داده: `node --test server/tests/db.test.js`
+- آزمون کامل (پس از نصب وابستگی‌ها): `npm test && npm run build`
+
+## مستندات
+
+- [راهنمای GitHub / VPS](docs/GITHUB_VPS_FA.md)
+- [راهنمای پنل مدیریت](docs/ADMIN_GUIDE_FA.md)
+- [روش‌های دستی استقرار](docs/DEPLOYMENT_FA.md)
+- [گزارش اصلاحات نسخه 1.1](docs/CHANGELOG_FA.md)
 - [محدودیت‌های شناخته‌شده](docs/KNOWN_LIMITATIONS.md)
 
-**یادآوری:** سفارش‌ها بدون اتصال درگاه، در انتظار پرداخت ثبت می‌شوند و فقط پس از تأیید واقعی وجه توسط مدیر قابل تأیید هستند. آزمون یکپارچه رابط در مرورگر و استقرار واقعی روی VPS هنوز تأیید نشده است.
+**پرداخت:** سفارش‌ها بدون درگاه واقعی در حالت `awaiting_payment` باقی می‌مانند. تأیید پرداخت در پنل باید فقط پس از دریافت واقعی وجه انجام شود.

@@ -69,7 +69,7 @@ function throttle(req,res,next){
 const kinds=['article','product','course','service','page','faq','testimonial','banner'];
 function contentOutput(row){if(!row)return row;return {...row,extra:parseJSON(row.extra)};}
 function settings(){return Object.fromEntries(all('SELECT key,value FROM settings').map(({key,value})=>[key,parseJSON(value,null)]));}
-app.get('/api/health',(req,res)=>res.json({status:'ok',version:'1.0.0'}));
+app.get('/api/health',(req,res)=>res.json({service:'asteria',status:'ok',version:'1.1.0'}));
 app.get('/api/public/settings',(req,res)=>res.json(settings()));
 app.get('/api/content',(req,res)=>{
  const kind=str(req.query.kind,30),category=str(req.query.category,80),q=str(req.query.q,100);

@@ -1,70 +1,73 @@
-# راهنمای کوتاه نصب Asteria از GitHub روی VPS
+# نصب Asteria از GitHub روی Ubuntu 24.04
 
-**مناسب برای:** Ubuntu Server 24.04، دامنه اختصاصی، دسترسی SSH و `sudo`؛ نصب با Docker Compose و HTTPS خودکار Caddy.
+## پیش‌نیاز
 
-## ۱. آماده‌سازی GitHub
+- مخزن GitHub: `https://github.com/Hosseinmehrfard/asteria` با فایل‌های **استخراج‌شده** پروژه در ریشه شاخه `main`؛ خود ZIP را به‌تنهایی آپلود نکنید.
+- دامنه متصل به IP VPS و پورت‌های TCP 80 و 443 آزاد؛ HTTPS را Caddy مدیریت می‌کند.
+- دسترسی SSH و `sudo`، اینترنت سرور برای دانلود Docker image و پکیج‌های npm.
 
-ZIP پروژه را استخراج کرده و **فایل‌های داخل پوشه** را در یک مخزن GitHub خالی بارگذاری کنید؛ خود ZIP را به‌جای سورس قرار ندهید.
+## نصب یک‌خطی (هم برای نصب جدید، هم پوشه موجود)
 
-```bash
-git init -b main && git add . && git commit -m "Initial Asteria" && git remote add origin https://github.com/USERNAME/REPO.git && git push -u origin main
-```
-
-پوشه‌های `storage/`، `server/data/`، `server/uploads/` و فایل `.env` نباید به GitHub بروند. برای مخزن Private، دسترسی Git روی VPS را پیشاپیش تنظیم کنید.
-
-## ۲. نصب یک‌خطی روی VPS
-
-ابتدا DNS دامنه را به IP سرور متصل کنید؛ پورت‌های TCP **80 و 443** باید باز باشند. روی سرور دیگری که همین پورت‌ها را اشغال کرده است، نصب پیش‌فرض مناسب نیست.
-
-`USERNAME/REPO` را به نام مخزن و `example.com` را به دامنه واقعی تغییر دهید:
+`example.com` را با دامنه سایت جایگزین کنید:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y git && sudo mkdir -p /opt/asteria && sudo chown "$(id -u):$(id -g)" /opt/asteria && git clone https://github.com/USERNAME/REPO.git /opt/asteria && cd /opt/asteria && bash scripts/install-vps.sh example.com
+sudo apt-get update && sudo apt-get install -y curl git && (set -o pipefail; curl -fsSL https://raw.githubusercontent.com/Hosseinmehrfard/asteria/main/scripts/bootstrap-vps.sh | bash -s -- example.com)
 ```
 
-پس از اجرای موفق: `https://example.com` و `https://example.com/admin`. صدور گواهی HTTPS به DNS و دسترسی شبکه بستگی دارد.
+این نصب‌کننده:
 
-## ۳. آپدیت یک‌خطی از GitHub
+1. اگر `/opt/asteria` خالی یا غایب باشد، مخزن را دریافت می‌کند.
+2. اگر `/opt/asteria/.git` موجود و متعلق به همان مخزن باشد، دوباره clone نمی‌کند.
+3. اگر `.env` موجود باشد، هنگام اجرای سرویس بکاپ و آپدیت می‌کند؛ اگر سرویس متوقف یا نصب نیمه‌تمام باشد، ابتدا بکاپ سازگار می‌گیرد و نصب را ترمیم می‌کند. اگر نصب هنوز انجام نشده باشد، کد را می‌گیرد و نصب می‌کند.
+4. پوشه نامرتبط یا دارای فایل‌های غیر Git را حذف یا بازنویسی نمی‌کند.
 
-ابتدا تغییرات را در GitHub ثبت کنید، سپس روی VPS:
+**در مخزن خصوصی** URL خام GitHub معمولاً نیاز به احراز هویت دارد. به‌جای دستور بالا، پس از تنظیم دسترسی Git، روی VPS دستور زیر را اجرا کنید (در صورت وجود مخزن، clone نکنید):
 
 ```bash
-cd /opt/asteria && bash scripts/update-vps.sh
+cd /opt/asteria && git pull --ff-only && bash scripts/install-vps.sh example.com
 ```
 
-این اسکریپت پیش از `git pull --ff-only` از دیتابیس SQLite و آپلودها بکاپ می‌گیرد، سرویس را بازسازی می‌کند و سلامت API را بررسی می‌کند. فایل‌ها و داده‌های ماندگار در `storage/` باقی می‌مانند.
+در صورت داشتن یک نصب فعال، برای حفظ بکاپ قبل از `git pull` از **دستور آپدیت** استفاده کنید، نه دستور نمونه فوق.
 
-## ۴. فرمان‌های ضروری
+## ایجاد مدیر
 
-**ساخت اولین مدیر** (در صورت رد کردن مرحله ایجاد مدیر در نصب):
+نصب اولیه معمولاً ساخت مدیر را پیشنهاد می‌دهد. اگر آن مرحله رد شد:
 
 ```bash
 cd /opt/asteria && sudo docker compose -f compose.yaml -f compose.vps.yaml exec web node server/setup-admin.js
 ```
 
-**بکاپ دستی:**
+رمز مدیر حداقل ۱۲ نویسه باشد. هنگام ورود رمز در ترمینال نسخه فعلی، ورودی ممکن است نمایش داده شود؛ در محیط خصوصی آن را وارد کنید.
+
+## آپدیت یک‌خطی (با بکاپ قبل از تغییر کد)
 
 ```bash
+cd /opt/asteria && bash scripts/update-vps.sh
+```
+
+فایل‌های دائمی در `/opt/asteria/storage/` باقی می‌مانند؛ `.env` به GitHub نمی‌رود. آپدیت خودکار فقط fast-forward Git را می‌پذیرد و تغییرات محلی فایل‌های tracked را بازنویسی نمی‌کند.
+
+## وضعیت، خطاها و بکاپ
+
+```bash
+cd /opt/asteria && bash scripts/status-vps.sh
+cd /opt/asteria && bash scripts/logs-vps.sh caddy
 cd /opt/asteria && bash scripts/backup-vps.sh
 ```
 
-**بررسی وضعیت سایت:**
+بکاپ‌ها: `/opt/asteria/storage/backups/`. هنگام توقف برنامه، اسکریپت از API رسمی SQLite برای بکاپ سالم استفاده می‌کند؛ کپی ساده فایل اصلی دیتابیس به‌تنهایی کافی نیست. بکاپ باید خارج از VPS هم ذخیره شود.
 
-```bash
-cd /opt/asteria && sudo docker compose -f compose.yaml -f compose.vps.yaml ps
-```
+## خطاهای رایج
 
-**مشاهده خطاها:**
+- `destination path ... already exists`: از دستور نصب جدید بالا استفاده کنید؛ پوشه موجود را پاک نکنید.
+- `Directory ... is not empty`: پوشه مربوط به مخزن نیست. محتویات را بررسی کنید؛ اسکریپت چیزی حذف نمی‌کند.
+- `Docker daemon not reachable`: وضعیت سرویس Docker و دسترسی کاربر را بررسی کنید.
+- `Address already in use`: پورت 80، 443 یا 4000 قبلاً استفاده شده؛ پورت‌های سایر سایت‌ها را بدون بررسی آزاد نکنید.
+- `HTTPS not ready`: رکورد DNS، فایروال و لاگ Caddy را بررسی کنید. تأیید سلامت محلی API به معنای صدور موفق گواهی SSL نیست.
+- `npm install/build error`: خطا از مخزن npm یا وابستگی‌های پروژه است؛ `bash scripts/logs-vps.sh web` و خروجی build را بررسی کنید.
 
-```bash
-cd /opt/asteria && sudo docker compose -f compose.yaml -f compose.vps.yaml logs --tail=100 web
-```
+## تنظیمات فنی
 
-بکاپ‌ها در `storage/backups/` قرار می‌گیرند؛ نسخه‌ای جداگانه خارج از VPS نگهداری شود.
+مقدارهای `DOMAIN` و `APP_ORIGIN` در `.env` برای هر VPS ذخیره می‌شوند. تغییر دامنه نیازمند ویرایش آگاهانه این فایل و اجرای مجدد سرویس‌هاست. سرور برنامه فقط روی `127.0.0.1:4000` منتشر می‌شود و Caddy درخواست‌های HTTPS را به آن هدایت می‌کند.
 
-## نکات مهم
-
-- دستور نصب فقط برای **نصب اولیه در `/opt/asteria`** است؛ برای نسخه‌های بعدی دستور آپدیت را اجرا کنید.
-- فایل `.env`، اطلاعات کاربران و فایل‌های آپلودشده را به GitHub انتقال ندهید.
-- سرویس پرداخت واقعی و ایمیل تراکنشی هنوز متصل نشده‌اند. آزمون استقرار واقعی VPS انجام نشده است.
-- جزئیات بیشتر: [استقرار پیشرفته](DEPLOYMENT_FA.md)، [پنل مدیریت](ADMIN_GUIDE_FA.md)، [محدودیت‌ها](KNOWN_LIMITATIONS.md).
+درگاه پرداخت واقعی، ایمیل تراکنشی و سیستم بازیابی رمز هنوز پیاده‌سازی نشده‌اند. این نسخه تا پیش از آزمون روی VPS واقعی، انتشار عمومی تجاری تأییدشده محسوب نمی‌شود.

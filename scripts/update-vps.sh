@@ -15,11 +15,16 @@ OLD_SHA="$(git rev-parse --short HEAD)"
 info 'Downloading and fast-forwarding to the latest commit'
 git pull --ff-only
 NEW_SHA="$(git rev-parse --short HEAD)"
-info "Rebuilding the application ($OLD_SHA -> $NEW_SHA)"
-dc up -d --build
+info "Building the new application before replacing the running container ($OLD_SHA -> $NEW_SHA)"
+dc config --quiet
+dc build web
+info 'Starting the new release'
+dc up -d --no-build
 info 'Checking app health'
 for attempt in {1..30}; do
-  if curl -fsS --max-time 4 http://127.0.0.1:4000/api/health; then
+  health_response="$(curl -fsS --max-time 4 http://127.0.0.1:4000/api/health 2>/dev/null || true)"
+  if [[ "$health_response" == *'"service":"asteria"'* ]]; then
+    printf '%s\n' "$health_response"
     printf '\nUpdated: %s -> %s\n' "$OLD_SHA" "$NEW_SHA"
     printf 'Uploaded files, SQLite database and Caddy TLS data remain in storage/.\n'
     exit 0
