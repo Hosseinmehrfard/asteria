@@ -42,21 +42,7 @@ cd /opt/asteria && bash scripts/backup-vps.sh
 
 پس از نصب: `https://example.com` | پنل: `https://example.com/admin`
 
-## بارگذاری روی GitHub
-
-محتویات پوشه استخراج‌شده را در یک **repository خالی** قرار دهید؛ خود فایل ZIP را به‌تنهایی بارگذاری نکنید. در همان پوشه:
-
-```bash
-git init -b main && git add . && git commit -m "Initial Asteria" && git remote add origin https://github.com/USERNAME/REPO.git && git push -u origin main
-```
-
-**مهم:** فایل `.env`، پوشه `storage/`، پایگاه داده، آپلودها و بکاپ‌ها را در GitHub قرار ندهید؛ در `.gitignore` مستثنا شده‌اند. مخزن Private برای سورس اختصاصی مناسب‌تر است.
-
-## راهنماها
-
-- [راهنمای کوتاه نصب و آپدیت GitHub/VPS](docs/GITHUB_VPS_FA.md)
-- [راهنمای پنل مدیریت](docs/ADMIN_GUIDE_FA.md)
-- [استقرار پیشرفته](docs/DEPLOYMENT_FA.md)
+## بارگذاری ](docs/DEPLOYMENT_FA.md)
 - [محدودیت‌های شناخته‌شده](docs/KNOWN_LIMITATIONS.md)
 
 **یادآوری:** سفارش‌ها بدون اتصال درگاه، در انتظار پرداخت ثبت می‌شوند و فقط پس از تأیید واقعی وجه توسط مدیر قابل تأیید هستند. آزمون یکپارچه رابط در مرورگر و استقرار واقعی روی VPS هنوز تأیید نشده است.
