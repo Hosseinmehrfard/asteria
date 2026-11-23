@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {db,get,all,run,uid,audit} from './db.js';
 import {calculateChart,moonCalendar} from './astro.js';
+import {normalizeVideo} from './video.js';
 
 const app=express();
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
@@ -68,8 +69,9 @@ function throttle(req,res,next){
 }
 const kinds=['article','product','course','service','page','faq','testimonial','banner'];
 function contentOutput(row){if(!row)return row;return {...row,extra:parseJSON(row.extra)};}
+function publicContentOutput(row){const item=contentOutput(row);if(item?.kind==='course'&&item.extra?.videoPreview!==true)delete item.extra.videoUrl;return item;}
 function settings(){return Object.fromEntries(all('SELECT key,value FROM settings').map(({key,value})=>[key,parseJSON(value,null)]));}
-app.get('/api/health',(req,res)=>res.json({service:'asteria',status:'ok',version:'1.1.0'}));
+app.get('/api/health',(req,res)=>res.json({service:'asteria',status:'ok',version:'1.2.0'}));
 app.get('/api/public/settings',(req,res)=>res.json(settings()));
 app.get('/api/content',(req,res)=>{
  const kind=str(req.query.kind,30),category=str(req.query.category,80),q=str(req.query.q,100);
@@ -80,12 +82,12 @@ app.get('/api/content',(req,res)=>{
  if(category){where+=' AND category=?';params.push(category);}
  if(q){where+=' AND (title_fa LIKE ? OR title_en LIKE ? OR summary_fa LIKE ? OR summary_en LIKE ?)';params.push(...Array(4).fill(`%${q}%`));}
  const total=get(`SELECT COUNT(*) AS n FROM content ${where}`,...params).n;
- const items=all(`SELECT * FROM content ${where} ORDER BY sort_order ASC,created_at DESC LIMIT ? OFFSET ?`,...params,limit,(page-1)*limit).map(contentOutput);
+ const items=all(`SELECT * FROM content ${where} ORDER BY sort_order ASC,created_at DESC LIMIT ? OFFSET ?`,...params,limit,(page-1)*limit).map(publicContentOutput);
  res.json({items,total,page,pages:Math.ceil(total/limit)});
 });
 app.get('/api/content/:slug',(req,res)=>{
  const row=get("SELECT * FROM content WHERE slug=? AND status='published'",req.params.slug);
- row?res.json(contentOutput(row)):error(res,404,'Content not found');
+ row?res.json(publicContentOutput(row)):error(res,404,'Content not found');
 });
 app.get('/api/moon',(req,res)=>res.json({items:moonCalendar(new Date(),30)}));
 app.post('/api/chart',throttle,(req,res)=>{
@@ -306,11 +308,13 @@ app.patch('/api/admin/settings',auth,admin,(req,res)=>{
  audit(req.user,'settings.update','site',{keys:changed});res.json(settings());
 });
 const storage=multer.diskStorage({destination(req,file,cb){cb(null,req.query.private==='1'?privateUploads:publicUploads);},filename(req,file,cb){cb(null,crypto.randomBytes(20).toString('hex')+path.extname(file.originalname).toLowerCase());}});
-const upload=multer({storage,limits:{fileSize:Math.min(200,Math.max(1,Number(process.env.MAX_UPLOAD_MB||20)))*1024*1024},fileFilter(req,file,cb){
+const upload=multer({storage,limits:{fileSize:Math.min(500,Math.max(1,Number(process.env.MAX_UPLOAD_MB||100)))*1024*1024},fileFilter(req,file,cb){
  const priv=req.query.private==='1';const ext=path.extname(file.originalname).toLowerCase();
- const allow=priv?['.pdf','.zip','.epub','.mp3','.mp4']:['.png','.jpg','.jpeg','.webp','.gif'];
- const mimetypes=priv?['application/pdf','application/zip','application/x-zip-compressed','application/epub+zip','audio/mpeg','video/mp4','application/octet-stream']:['image/png','image/jpeg','image/webp','image/gif'];
+ const allow=priv?['.pdf','.zip','.epub','.mp3','.mp4','.webm']:['.png','.jpg','.jpeg','.webp','.gif','.mp4','.webm'];
+ const mimetypes=priv?['application/pdf','application/zip','application/x-zip-compressed','application/epub+zip','audio/mpeg','video/mp4','video/webm','application/octet-stream']:['image/png','image/jpeg','image/webp','image/gif','video/mp4','video/webm'];
  if(!allow.includes(ext)||!mimetypes.includes(file.mimetype))return cb(new Error('Unsupported file type'));
+ const mediaTypes={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.mp4':'video/mp4','.webm':'video/webm'};
+ if(!priv&&mediaTypes[ext]!==file.mimetype)return cb(new Error('File extension and MIME do not match'));
  cb(null,true);
  }});
 app.use('/uploads',express.static(publicUploads,{index:false,dotfiles:'deny',setHeaders(res){res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Content-Security-Policy',"default-src 'none'; style-src 'none'; sandbox");}}));
@@ -326,6 +330,34 @@ app.delete('/api/admin/files/:id',auth,admin,(req,res)=>{
  const dir=f.is_private?privateUploads:publicUploads;fs.rmSync(path.join(dir,f.stored_name),{force:true});run('DELETE FROM files WHERE id=?',f.id);
  audit(req.user,'file.delete',f.id);res.json({ok:true});
 });
+// Dedicated reusable embedded-video catalog. The API never accepts raw iframe HTML.
+app.get('/api/videos',(req,res)=>res.json({items:all("SELECT id,title_fa,title_en,description_fa,description_en,source_url,embed_url,provider,thumbnail FROM videos WHERE status='published' ORDER BY sort_order,created_at DESC LIMIT 150")}));
+app.get('/api/admin/videos',auth,staff,(req,res)=>res.json({items:all('SELECT * FROM videos ORDER BY created_at DESC')}));
+const readVideoInput=(body,old={})=>{
+ const titleFa=str(body.title_fa??old.title_fa,180),titleEn=str(body.title_en??old.title_en,180);
+ const descriptionFa=str(body.description_fa??old.description_fa,4000),descriptionEn=str(body.description_en??old.description_en,4000);
+ const source=str(body.source_url??old.source_url,1200),thumbnail=str(body.thumbnail??old.thumbnail,500);
+ const status=str(body.status??old.status??'draft',20),sort=Number(body.sort_order??old.sort_order??0);
+ const info=normalizeVideo(source);
+ if(info?.provider==='file'&&!get('SELECT id FROM files WHERE stored_name=? AND is_private=0 AND mime IN (\'video/mp4\',\'video/webm\')',path.basename(source)))return null;
+ if(!titleFa||!titleEn||!info||!['draft','published'].includes(status)||!Number.isSafeInteger(sort))return null;
+ if(thumbnail && !(thumbnail.startsWith('/uploads/') || /^https:\/\/(?:images\.unsplash\.com|i\.ytimg\.com)\//.test(thumbnail)))return null;
+ return {titleFa,titleEn,descriptionFa,descriptionEn,...info,thumbnail,status,sort};
+};
+app.post('/api/admin/videos',auth,editor,(req,res)=>{
+ const v=readVideoInput(req.body);if(!v)return error(res,400,'Invalid video data or unsupported URL');
+ const id=uid();run(`INSERT INTO videos(id,title_fa,title_en,description_fa,description_en,source_url,embed_url,provider,thumbnail,status,sort_order) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,id,v.titleFa,v.titleEn,v.descriptionFa,v.descriptionEn,v.source_url,v.embed_url,v.provider,v.thumbnail,v.status,v.sort);
+ audit(req.user,'video.create',id);res.status(201).json({id});
+});
+app.patch('/api/admin/videos/:id',auth,editor,(req,res)=>{
+ const old=get('SELECT * FROM videos WHERE id=?',req.params.id);if(!old)return error(res,404,'Video not found');
+ const v=readVideoInput(req.body,old);if(!v)return error(res,400,'Invalid video data or unsupported URL');
+ run(`UPDATE videos SET title_fa=?,title_en=?,description_fa=?,description_en=?,source_url=?,embed_url=?,provider=?,thumbnail=?,status=?,sort_order=?,updated_at=datetime('now') WHERE id=?`,v.titleFa,v.titleEn,v.descriptionFa,v.descriptionEn,v.source_url,v.embed_url,v.provider,v.thumbnail,v.status,v.sort,old.id);
+ audit(req.user,'video.update',old.id);res.json({ok:true});
+});
+app.delete('/api/admin/videos/:id',auth,admin,(req,res)=>{
+ const n=run('DELETE FROM videos WHERE id=?',req.params.id);if(!n.changes)return error(res,404,'Video not found');audit(req.user,'video.delete',req.params.id);res.json({ok:true});
+});
 app.get('/api/account/download/:id',auth,(req,res)=>{
  const p=get("SELECT * FROM content WHERE id=? AND kind IN ('product','course')",req.params.id);if(!p)return error(res,404,'Product not found');
  const fileId=parseJSON(p.extra).fileId,file=get('SELECT * FROM files WHERE id=? AND is_private=1',fileId||'');
@@ -337,7 +369,7 @@ app.get('/api/account/download/:id',auth,(req,res)=>{
 });
 app.get('/api/admin/audit',auth,admin,(req,res)=>res.json({items:all('SELECT a.*,u.email FROM audit a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.created_at DESC LIMIT 250').map(a=>({...a,details:parseJSON(a.details)}))}));
 app.get('/api/admin/export',auth,admin,(req,res)=>{
- const tables=['content','categories','lessons','orders','coupons','bookings','messages','newsletter','files','charts','settings','audit'];
+ const tables=['content','categories','lessons','videos','orders','coupons','bookings','messages','newsletter','files','charts','settings','audit'];
  const data={generatedAt:new Date().toISOString(),notice:'Data export (not a restorable database backup). Keep private.',users:all('SELECT id,email,name,role,status,created_at FROM users'),tables:Object.fromEntries(tables.map(t=>[t,all(`SELECT * FROM ${t}`)]))};
  audit(req.user,'data.export','database');res.setHeader('Content-Disposition','attachment; filename="asteria-export.json"');res.setHeader('Cache-Control','no-store');res.json(data);
 });
@@ -369,6 +401,7 @@ function courseAccess(req,courseId){
  return all("SELECT items FROM orders WHERE user_id=? AND status IN ('paid','processing','completed')",req.user.id)
    .some(o=>parseJSON(o.items,[]).some(item=>item.id===courseId));
 }
+function videoAllowed(source){const info=normalizeVideo(source);return !!info&&(info.provider!=='file'||!!get("SELECT id FROM files WHERE stored_name=? AND is_private=0 AND mime IN ('video/mp4','video/webm')",path.basename(source)));}
 app.get('/api/course/:slug/lessons',(req,res)=>{
  const course=get("SELECT * FROM content WHERE slug=? AND kind='course' AND status='published'",req.params.slug);
  if(!course)return error(res,404,'Course not found');
@@ -383,7 +416,7 @@ app.get('/api/admin/lessons',auth,editor,(req,res)=>{
 app.post('/api/admin/lessons',auth,editor,(req,res)=>{
  const course=get("SELECT id FROM content WHERE id=? AND kind='course'",str(req.body.course_id,80));if(!course)return error(res,404,'Course not found');
  const fa=str(req.body.title_fa,150),en=str(req.body.title_en,150),bodyFa=str(req.body.body_fa,30000),bodyEn=str(req.body.body_en,30000),video=str(req.body.video_url,1000),sort=Number(req.body.sort_order||0),preview=req.body.preview?1:0;
- if(!fa||!en||!Number.isSafeInteger(sort)||video&& !/^https:\/\//.test(video))return error(res,400,'Invalid lesson');
+ if(!fa||!en||!Number.isSafeInteger(sort)||(video&&!videoAllowed(video)))return error(res,400,'Invalid lesson');
  const id=uid();run('INSERT INTO lessons(id,course_id,title_fa,title_en,body_fa,body_en,video_url,preview,sort_order) VALUES(?,?,?,?,?,?,?,?,?)',id,course.id,fa,en,bodyFa,bodyEn,video,preview,sort);
  audit(req.user,'lesson.create',id);res.status(201).json({id});
 });
@@ -391,7 +424,7 @@ app.patch('/api/admin/lessons/:id',auth,editor,(req,res)=>{
  const old=get('SELECT * FROM lessons WHERE id=?',req.params.id);if(!old)return error(res,404,'Lesson not found');
  const fields=['title_fa','title_en','body_fa','body_en','video_url'];const vals=fields.map(k=>str(req.body[k]??old[k],k.startsWith('body')?30000:1000));
  const sort=Number(req.body.sort_order??old.sort_order),preview=req.body.preview==null?old.preview:(req.body.preview?1:0);
- if(!vals[0]||!vals[1]||!Number.isSafeInteger(sort)||(vals[4]&&!/^https:\/\//.test(vals[4])))return error(res,400,'Invalid lesson');
+ if(!vals[0]||!vals[1]||!Number.isSafeInteger(sort)||(vals[4]&&!videoAllowed(vals[4])))return error(res,400,'Invalid lesson');
  run(`UPDATE lessons SET ${fields.map(k=>k+'=?').join(',')},sort_order=?,preview=? WHERE id=?`,...vals,sort,preview,old.id);
  audit(req.user,'lesson.update',old.id);res.json({ok:true});
 });
@@ -405,7 +438,7 @@ app.get('/robots.txt',(req,res)=>{
 });
 app.get('/sitemap.xml',(req,res)=>{
  const base=APP_ORIGIN.replace(/\/$/,'');
- const staticPaths=['/','/blog','/shop','/academy','/birth-chart','/services','/moon','/about','/research','/faq','/contact'];
+ const staticPaths=['/','/blog','/shop','/academy','/videos','/birth-chart','/services','/moon','/about','/research','/faq','/contact'];
  const entries=all("SELECT kind,slug,updated_at FROM content WHERE status='published' AND kind IN ('article','product','course','page')");
  const dynamic=entries.map(c=>c.kind==='article'?'/blog/'+c.slug:c.kind==='product'?'/shop/'+c.slug:c.kind==='course'?'/academy/'+c.slug:'/p/'+c.slug);
  const xmlEscape=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');

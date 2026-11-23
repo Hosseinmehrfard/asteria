@@ -59,6 +59,15 @@ CREATE TABLE IF NOT EXISTS files (
  id TEXT PRIMARY KEY,original_name TEXT NOT NULL,stored_name TEXT NOT NULL,mime TEXT NOT NULL,
  size INTEGER NOT NULL,is_private INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS videos (
+ id TEXT PRIMARY KEY,title_fa TEXT NOT NULL,title_en TEXT NOT NULL DEFAULT '',
+ description_fa TEXT NOT NULL DEFAULT '',description_en TEXT NOT NULL DEFAULT '',
+ source_url TEXT NOT NULL,embed_url TEXT NOT NULL,provider TEXT NOT NULL,
+ thumbnail TEXT NOT NULL DEFAULT '',status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','published')),
+ sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT (datetime('now')),
+ updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status,sort_order,created_at);
 CREATE TABLE IF NOT EXISTS charts (
  id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
  name TEXT NOT NULL,birth_date TEXT NOT NULL,birth_time TEXT NOT NULL,timezone REAL NOT NULL,

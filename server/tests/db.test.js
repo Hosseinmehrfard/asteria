@@ -10,7 +10,7 @@ const {db,get,all,run,uid,audit}=await import('../db.js');
 
 test('SQLite schema initializes all required domain tables',()=>{
  const names=all("SELECT name FROM sqlite_master WHERE type='table'").map(x=>x.name);
- for(const name of ['users','sessions','content','orders','coupons','bookings','messages','newsletter','files','charts','settings','audit','categories','lessons'])assert.ok(names.includes(name),name);
+ for(const name of ['users','sessions','content','orders','coupons','bookings','messages','newsletter','files','videos','charts','settings','audit','categories','lessons'])assert.ok(names.includes(name),name);
  assert.equal(db.prepare('PRAGMA foreign_keys').get().foreign_keys,1);
 });
 test('seed content is independent and bilingual',()=>{
@@ -36,6 +36,13 @@ test('order data retains immutable snapshot and valid total',()=>{
  assert.equal(row.status,'awaiting_payment');
  assert.equal(JSON.parse(row.items)[0].quantity,2);
  assert.equal(row.total,18000);
+});
+test('bilingual video catalog persists with draft/published status',()=>{
+ const id=uid();
+ run('INSERT INTO videos(id,title_fa,title_en,source_url,embed_url,provider,status) VALUES(?,?,?,?,?,?,?)',id,'درس ویدئویی','Video lesson','https://www.aparat.com/v/abc12','https://www.aparat.com/video/video/embed/videohash/abc12/vt/frame','aparat','draft');
+ assert.equal(get('SELECT provider FROM videos WHERE id=?',id).provider,'aparat');
+ run("UPDATE videos SET status='published' WHERE id=?",id);
+ assert.equal(get('SELECT status FROM videos WHERE id=?',id).status,'published');
 });
 test('deleted demo content does not reappear after restarting the app',()=>{
  const target=get("SELECT id FROM content WHERE slug='reading-your-natal-chart'");

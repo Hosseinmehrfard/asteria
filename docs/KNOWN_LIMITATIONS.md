@@ -7,9 +7,9 @@
 5. Scheduled sessions collect requested dates but do not prevent double bookings or issue calendar invites.
 6. This is a React SPA, not SSR. SEO sitemap and robots are basic; dynamic metatags, indexing and social sharing tags require additional work.
 7. Default sample images/content/products do not represent the original site's licensed catalog. Demo digital files are absent until an administrator uploads and links them.
-8. Videos are represented by external HTTPS links. No private streaming, DRM, video transcoding, upload/resume or live lessons.
-9. The rich-text editor is plain multiline text; it does not support embedded HTML, images inside paragraphs, tables, Markdown render or complex publishing workflows.
+8. Public MP4/WebM can be uploaded and embedded, and YouTube/Aparat are shown in supported iframes. Embedding remains subject to provider restrictions. No DRM, protected video streaming, resumable/chunked uploads, video transcoding or live video classroom.
+9. The content editor remains plain multiline text; embeds work as separate video blocks, not as an arbitrary HTML/WYSIWYG editor. It does not support complex publishing workflows.
 10. The API allows a user to save and delete charts but doesn't provide self-service full account deletion, email verification, email-based recovery, privacy export, or retention policies.
 11. Newsletter double-opt-in, GDPR/locale legal pages and cookie consent aren't implemented.
 12. SQLite uses built-in `node:sqlite` on supported Node 22; migration/versioning and scaling to multiple concurrent servers are not implemented.
-13. The client was statically parsed and the database/backup tested. Installing dependencies/building UI and browser end-to-end testing were unavailable in the authoring container due to blocked npm registry access. Complete QA before production deployment.
+13. Database, video URL validation and PWA generation tests passed. Complete Vite production build, Docker boot and cross-browser/mobile acceptance checks need running in GitHub CI or on a test VPS because npm registry access was unavailable in the authoring environment.

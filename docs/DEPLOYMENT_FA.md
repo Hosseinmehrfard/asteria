@@ -60,4 +60,4 @@ example.com {
 curl http://127.0.0.1:4000/api/health
 ```
 
-پاسخ انتظار: `{"service":"asteria","status":"ok","version":"1.1.0"}`.
+پاسخ انتظار: `{"service":"asteria","status":"ok","version":"1.2.0"}`.
