@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 const dist=path.resolve('client/dist');
 if(!fs.existsSync(path.join(dist,'index.html')))throw new Error('Build client first');
-const staticFiles=['/','/offline.html','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-maskable-512.png'];
+const staticFiles=['/','/offline.html','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-maskable-512.png'];
 const scan=(dir)=>fs.existsSync(dir)?fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?scan(path.join(dir,e.name)):[path.join(dir,e.name)]):[];
-const files=scan(path.join(dist,'assets')).filter(f=>/\.(css|js|svg|png|webp|woff2?)$/.test(f)).map(f=>'/'+path.relative(dist,f).split(path.sep).join('/'));
+const files=[...scan(path.join(dist,'assets')),...scan(path.join(dist,'art'))].filter(f=>/\.(css|js|svg|png|webp|woff2?)$/.test(f)).map(f=>'/'+path.relative(dist,f).split(path.sep).join('/'));
 const version=process.env.GITHUB_SHA?.slice(0,12)||String(Date.now());
 const sw=`// Generated during vite production build; never cache authenticated API requests.
 const CACHE='asteria-static-${version}';

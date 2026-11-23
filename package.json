@@ -1,6 +1,6 @@
 {
   "name": "asteria-bilingual-platform",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,7 +15,7 @@
     "build": "npm run build -w client && node client/pwa-build.mjs",
     "start": "npm run start -w server",
     "setup-admin": "npm run setup-admin -w server",
-    "check": "node --check server/index.js && node --check server/db.js && node --check server/astro.js && node --check server/video.js",
+    "check": "node --check server/index.js && node --check server/db.js && node --check server/astro.js && node --check server/video.js && node --check server/site-builder.js",
     "backup": "npm run backup -w server",
     "test": "node --test server/tests/*.test.js"
   },

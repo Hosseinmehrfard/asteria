@@ -7,6 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {db,get,all,run,uid,audit} from './db.js';
 import {calculateChart,moonCalendar} from './astro.js';
 import {normalizeVideo} from './video.js';
+import {defaultBuilder,normalizeBuilder} from './site-builder.js';
 
 const app=express();
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
@@ -71,8 +72,19 @@ const kinds=['article','product','course','service','page','faq','testimonial','
 function contentOutput(row){if(!row)return row;return {...row,extra:parseJSON(row.extra)};}
 function publicContentOutput(row){const item=contentOutput(row);if(item?.kind==='course'&&item.extra?.videoPreview!==true)delete item.extra.videoUrl;return item;}
 function settings(){return Object.fromEntries(all('SELECT key,value FROM settings').map(({key,value})=>[key,parseJSON(value,null)]));}
-app.get('/api/health',(req,res)=>res.json({service:'asteria',status:'ok',version:'1.2.0'}));
+app.get('/api/health',(req,res)=>res.json({service:'asteria',status:'ok',version:'1.3.0'}));
 app.get('/api/public/settings',(req,res)=>res.json(settings()));
+app.get('/api/public/site-builder',(req,res)=>res.json(settings().siteBuilder||defaultBuilder));
+// The installed app name, description and accent color track admin-managed branding.
+app.get('/manifest.webmanifest',(req,res)=>{
+ const b=settings().siteBuilder||defaultBuilder;
+ const fa=b.brand?.logoTextFa||'آستریا',en=b.brand?.logoTextEn||'Asteria';
+ const icons=[{src:'/icons/icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'/icons/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any'},{src:'/icons/icon-maskable-512.png',sizes:'512x512',type:'image/png',purpose:'maskable'}];
+ const icon=b.brand?.favicon||b.brand?.logo;
+ if(icon&&/^\/uploads\/[a-f0-9]{40}\.(png|webp)$/i.test(icon))icons.unshift({src:icon,sizes:'any',type:icon.endsWith('.webp')?'image/webp':'image/png',purpose:'any'});
+ res.setHeader('Cache-Control','no-store');res.type('application/manifest+json').json({id:'/',name:`${fa} · ${en}`,short_name:fa,description:b.footer?.descriptionFa||'',lang:'fa',dir:'rtl',start_url:'/',scope:'/',display:'standalone',orientation:'any',background_color:b.theme?.cream||'#fcfaf6',theme_color:b.theme?.navy||'#081c27',icons});
+});
+
 app.get('/api/content',(req,res)=>{
  const kind=str(req.query.kind,30),category=str(req.query.category,80),q=str(req.query.q,100);
  if(kind&&!kinds.includes(kind))return error(res,400,'Invalid content kind');
@@ -302,10 +314,21 @@ app.get('/api/admin/settings',auth,staff,(req,res)=>res.json(settings()));
 app.patch('/api/admin/settings',auth,admin,(req,res)=>{
  const defaults=settings();let changed=[];
  for(const [key,v] of Object.entries(req.body||{})){
-  if(!(key in defaults)||!['string','boolean','number'].includes(typeof v)||JSON.stringify(v).length>3000)continue;
+  if(key==='siteBuilder'||!(key in defaults)||!['string','boolean','number'].includes(typeof v)||JSON.stringify(v).length>3000)continue;
   run('UPDATE settings SET value=? WHERE key=?',JSON.stringify(v),key);changed.push(key);
  }
  audit(req.user,'settings.update','site',{keys:changed});res.json(settings());
+});
+// Dedicated layout endpoint: admin-only writes, bounded JSON, audit trail, SQLite persistence.
+app.get('/api/admin/site-builder',auth,staff,(req,res)=>res.json(settings().siteBuilder||defaultBuilder));
+app.put('/api/admin/site-builder',auth,admin,(req,res)=>{
+ try{
+  const data=normalizeBuilder(req.body);
+  if(JSON.stringify(data).length>110000)return error(res,413,'Layout payload too large');
+  run('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value','siteBuilder',JSON.stringify(data));
+  audit(req.user,'site-builder.update','homepage',{sections:data.sections.length});
+  res.json(data);
+ }catch(e){error(res,400,e.message);}
 });
 const storage=multer.diskStorage({destination(req,file,cb){cb(null,req.query.private==='1'?privateUploads:publicUploads);},filename(req,file,cb){cb(null,crypto.randomBytes(20).toString('hex')+path.extname(file.originalname).toLowerCase());}});
 const upload=multer({storage,limits:{fileSize:Math.min(500,Math.max(1,Number(process.env.MAX_UPLOAD_MB||100)))*1024*1024},fileFilter(req,file,cb){

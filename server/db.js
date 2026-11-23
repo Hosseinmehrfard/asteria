@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
+import {defaultBuilder} from './site-builder.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -99,6 +100,7 @@ export const audit = (user,action,target,details={}) => run('INSERT INTO audit(i
 // Existing databases must never be reseeded after an administrator deletes demo items.
 const isFreshDatabase=!get('SELECT key FROM settings LIMIT 1') && get('SELECT COUNT(*) n FROM content').n===0;
 const defaultSettings={
+  siteBuilder:defaultBuilder,
   siteNameFa:'آستریا',siteNameEn:'ASTERIA',taglineFa:'روایتی نو از آسمان و خودشناسی',taglineEn:'A different perspective on the sky and the self',
   heroTitleFa:'آسمان را از زاویه‌ای تازه ببینید',heroTitleEn:'Discover the sky from a new perspective',
   heroDescFa:'مقالات، آموزش‌های تخصصی و نقشه تولد در یک مسیر روشن برای مطالعه آسترولوژی.',
