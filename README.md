@@ -20,7 +20,6 @@
 sudo apt-get update && sudo apt-get install -y curl git && (set -o pipefail; curl -fsSL https://raw.githubusercontent.com/Hosseinmehrfard/asteria/main/scripts/bootstrap-vps.sh | bash -s -- example.com)
 ```
 
-**توجه:** ابتدا فایل‌های این نسخه را در شاخه `main` مخزن `Hosseinmehrfard/asteria` آپلود و ثبت کنید؛ دستور بالا اسکریپت همان مخزن را دریافت می‌کند. برای مخزن خصوصی یا URL متفاوت، [راهنمای استقرار](docs/GITHUB_VPS_FA.md) را ببینید.
 
 پس از نصب موفق:
 
