@@ -1,0 +1,5 @@
+# Automatic HTTPS requires a public domain pointing to this VPS.
+{$DOMAIN} {
+    encode zstd gzip
+    reverse_proxy web:4000
+}

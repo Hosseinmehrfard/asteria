@@ -1,0 +1,15 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      PORT: "4000"
+      NODE_ENV: production
+      DB_PATH: /app/server/data/asteria.sqlite
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN in your environment}
+      TRUST_PROXY: "1"
+    volumes:
+      - ./storage/data:/app/server/data
+      - ./storage/uploads:/app/server/uploads

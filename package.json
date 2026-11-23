@@ -1,0 +1,25 @@
+{
+  "name": "asteria-bilingual-platform",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n API,WEB \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server",
+    "setup-admin": "npm run setup-admin -w server",
+    "check": "node --check server/index.js && node --check server/db.js && node --check server/astro.js",
+    "backup": "npm run backup -w server",
+    "test": "node --test server/tests/*.test.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
