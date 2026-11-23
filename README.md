@@ -14,10 +14,9 @@
 
 **پیش‌نیاز:** Ubuntu 24.04، دسترسی SSH و `sudo`، دامنه با DNS متصل به IP سرور، پورت‌های باز 80/443، مخزن GitHub قابل‌دسترسی.
 
-**۱. نصب یک‌خطی** — `USERNAME/REPO` و `example.com` را با اطلاعات خود جایگزین کنید:
-
+**۱. نصب یک‌خطی `example.com` را با اطلاعات خود جایگزین کنید:
 ```bash
-sudo apt-get update && sudo apt-get install -y git && sudo mkdir -p /opt/asteria && sudo chown "$(id -u):$(id -g)" /opt/asteria && git clone https://github.com/USERNAME/REPO.git /opt/asteria && cd /opt/asteria && bash scripts/install-vps.sh example.com
+sudo apt-get update && sudo apt-get install -y git && sudo mkdir -p /opt/asteria && sudo chown "$(id -u):$(id -g)" /opt/asteria && git clone https://github.com/Hosseinmehrfard/asteria.git /opt/asteria && cd /opt/asteria && bash scripts/install-vps.sh example.com
 ```
 
 اسکریپت، Docker/Compose (در صورت نیاز) را نصب می‌کند و سایت را با Caddy و HTTPS اجرا می‌کند. برای GitHub خصوصی، احراز هویت Git باید قبلاً تنظیم شده باشد.
